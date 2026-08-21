@@ -17,12 +17,174 @@ void main() {
 class OpenWheelApp extends StatelessWidget {
   const OpenWheelApp({super.key});
 
-  @override
+ @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(),
-      home: const RacingScreen(),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Row(
+        children: [
+          // LEFT PANEL: Steering Control
+          Expanded(
+            flex: 4,
+            child: Container(
+              color: const Color(0xFF1A1D24), 
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // The Touch Steering Wheel
+                  IgnorePointer(
+                    ignoring: isGyroMode, // Gently ignore touches if we are tilting the phone
+                    child: GestureDetector(
+                      onPanUpdate: (details) {
+                        setState(() {
+                          touchWheelAngle += details.delta.dx * 0.01;
+                          double limitedAngle = touchWheelAngle.clamp(-1.57, 1.57);
+                          touchWheelAngle = limitedAngle;
+                          steeringValue = limitedAngle / 1.57;
+                        });
+                      },
+                      onPanEnd: (_) {
+                        setState(() { 
+                          touchWheelAngle = 0.0;
+                          steeringValue = 0.0;
+                        });
+                      },
+                      child: Transform.rotate(
+                        angle: isGyroMode ? 0.0 : touchWheelAngle,
+                        // We will use a simple circle for now until you add your custom images!
+                        child: Container(
+                          width: 250,
+                          height: 250,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white30, width: 8),
+                            color: Colors.white10,
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.drive_eta, color: Colors.white30, size: 50),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // The Sweet Little Mode Toggle
+                  Positioned(
+                    top: 20,
+                    child: Row(
+                      children: [
+                        const Text("Touch", style: TextStyle(color: Colors.white70)),
+                        Switch(
+                          value: isGyroMode,
+                          onChanged: _toggleGyro,
+                          activeColor: Colors.cyanAccent,
+                        ),
+                        const Text("Gyro", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // MIDDLE PANEL: Dashboard
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              color: Colors.black,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Text(
+                    isConnected ? "Connected" : "Waiting...", 
+                    style: TextStyle(
+                      color: isConnected ? Colors.greenAccent : Colors.amberAccent,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildControlButton("HB"),
+                      _buildControlButton("CAM"),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
+
+          // RIGHT PANEL: Analog Pedals
+          Expanded(
+            flex: 3,
+            child: Container(
+              color: const Color(0xFF1A1D24),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildPedal("BRAKE", Colors.redAccent, (val) => setState(() => brakeValue = val)),
+                  _buildPedal("ACCEL", Colors.greenAccent, (val) => setState(() => throttleValue = val)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Gentle Helper Functions ---
+
+  Widget _buildControlButton(String text) {
+    return Container(
+      width: 60,
+      height: 40,
+      decoration: BoxDecoration(
+        color: const Color(0xFF323846),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: Colors.white24)
+      ),
+      alignment: Alignment.center,
+      child: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildPedal(String label, Color color, Function(double) onChanged) {
+    return Column(
+      children: [
+        Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        Expanded(
+          child: Container(
+            width: 80,
+            decoration: BoxDecoration(
+              color: const Color(0xFF101216),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white12, width: 2)
+            ),
+            child: RotatedBox(
+              quarterTurns: 3, 
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 80, 
+                  thumbShape: SliderComponentShape.noThumb, 
+                  activeTrackColor: color.withOpacity(0.6),
+                  inactiveTrackColor: Colors.transparent,
+                  overlayColor: Colors.transparent,
+                ),
+                child: Slider(
+                  value: label == "ACCEL" ? throttleValue : brakeValue,
+                  onChanged: onChanged,
+                  onChangeEnd: (_) => onChanged(0.0), 
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
